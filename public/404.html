@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Перенаправление...</title>
+  <script>
+    // Перенаправление на index.html с сохранением пути и query-параметров
+    var pathSegments = window.location.pathname.split('/').filter(Boolean);
+    var query = window.location.search;
+    var hash = window.location.hash;
+    
+    // Если это не корневой путь, перенаправляем на index.html
+    if (pathSegments.length > 0) {
+      var repoName = pathSegments[0];
+      window.location.replace('/' + repoName + '/' + query + hash);
+    } else {
+      window.location.replace('/' + query + hash);
+    }
+  </script>
+</head>
+<body>
+  <p>Перенаправление...</p>
+</body>
+</html>

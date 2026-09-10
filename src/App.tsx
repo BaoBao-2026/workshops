@@ -4,7 +4,6 @@ import Papa from 'papaparse';
 const SHEET_ID = '12RhQZkMXbDLoUeYg-H35win6TwdxrpYu7Tt5-xoL8aw';
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`;
 const TIMEZONE = 'Europe/Moscow';
-const UTC_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 interface Workshop {
   name: string;
@@ -91,6 +90,7 @@ function App() {
   const [workshop, setWorkshop] = useState<Workshop | null>(null);
   const [countdown, setCountdown] = useState<Countdown>({ days: 0, hours: 0 });
   const [topic, setTopic] = useState<string>('');
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     document.documentElement.className = darkMode ? 'dark' : 'light';
@@ -106,24 +106,32 @@ function App() {
     setLoading(true);
     setError(null);
     setWorkshop(null);
+    setDebugInfo('');
 
     try {
       const response = await fetch(CSV_URL);
       
       if (!response.ok) {
-        throw new Error('Не удалось загрузить данные');
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const csvText = await response.text();
+      setDebugInfo(`Данные загружены (${csvText.length} байт)`);
       
       const result = Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
       });
 
-      if (result.errors.length > 0 && result.data.length === 0) {
-        throw new Error('Ошибка парсинга данных');
+      if (result.errors.length > 0) {
+        console.warn('Ошибки парсинга:', result.errors);
       }
+
+      if (result.data.length === 0) {
+        throw new Error('Таблица пуста или не удалось распарсить данные');
+      }
+
+      setDebugInfo(`Распарсено ${result.data.length} строк`);
 
       const now = new Date();
       const workshops: Workshop[] = [];
@@ -133,7 +141,10 @@ function App() {
         const timeStr = row['Время начала'] || '';
         const dateTime = parseDate(dateStr, timeStr);
         
-        if (!dateTime) continue;
+        if (!dateTime) {
+          console.warn('Не удалось распарсить дату:', { dateStr, timeStr });
+          continue;
+        }
         
         // Фильтр: дата и время >= текущее время
         if (dateTime.getTime() < now.getTime()) continue;
@@ -164,6 +175,8 @@ function App() {
         });
       }
 
+      setDebugInfo(prev => `${prev}. Найдено ${workshops.length} будущих воркшопов`);
+
       // Сортировка по дате и времени (возрастание)
       workshops.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
 
@@ -174,7 +187,9 @@ function App() {
       }
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Произошла неизвестная ошибка');
+      const errorMessage = err instanceof Error ? err.message : 'Произошла неизвестная ошибка';
+      setError(errorMessage);
+      console.error('Ошибка загрузки:', err);
     } finally {
       setLoading(false);
     }
@@ -212,7 +227,7 @@ function App() {
         </button>
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin" />
-          <p className="text-slate-500 dark:text-slate-400 text-lg">Загрузка...</p>
+          <p className="text-slate-500 dark:text-slate-400 text-lg">Загрузка данных...</p>
         </div>
       </div>
     );
@@ -234,7 +249,10 @@ function App() {
             <i className="fas fa-exclamation-triangle text-red-500 text-2xl" />
           </div>
           <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Ошибка загрузки</h2>
-          <p className="text-slate-500 dark:text-slate-400 mb-6">{error}</p>
+          <p className="text-slate-500 dark:text-slate-400 mb-4">{error}</p>
+          {debugInfo && (
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-4 break-all">{debugInfo}</p>
+          )}
           <button
             onClick={fetchWorkshops}
             className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
@@ -265,7 +283,10 @@ function App() {
           <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">
             {topic ? `Тема: «${topic}»` : 'Нет активных воркшопов'}
           </h2>
-          <p className="text-slate-500 dark:text-slate-400">Следующий воркшоп скоро появится</p>
+          <p className="text-slate-500 dark:text-slate-400 mb-4">Следующий воркшоп скоро появится</p>
+          {debugInfo && (
+            <p className="text-xs text-slate-400 dark:text-slate-500 break-all">{debugInfo}</p>
+          )}
         </div>
       </div>
     );

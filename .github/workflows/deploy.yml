@@ -3,6 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -32,8 +33,10 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Add .nojekyll
-        run: touch dist/.nojekyll
+      - name: Verify build output
+        run: |
+          ls -la dist/
+          cat dist/index.html | head -20
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
